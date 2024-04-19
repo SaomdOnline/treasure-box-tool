@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<head></head>
+<body>
+    <header>
+        <h3>treasure box thing idk</h3>
+    </header>
+    <div>
+        <div>
+            <span>Upload reward_box_content.json</span>
+            <input type="file" accept=".json" onchange="upload_reward_box_content(this)" />
+        </div>
+    </div>
+    <br><br>
+    <hr>
+    <br><br>
+    <div class="root">
+        <div class="reward-box-content" style="margin-bottom: 1vh;" hidden>
+            <select id="reward-box-content-select"></select>
+            <br>
+            <button onclick="add_treasure()">Add</button>
+            <br><br>
+            <div style="display: flex; flex-direction: row;">
+                <div style="padding-right: 1vw;">
+                    <select id="treasure-select" multiple onchange="onchange_treasure_select()"></select>
+                    <div>
+                        <button onclick="remove_treasure()">Remove</button><br>
+                        <button onclick="toggle_must_pick()">Toggle must_pick</button>
+                    </div>
+                </div>
+                <div id="treasure-info"></div>
+            </div>
+            <textarea cols="50" rows="15" id="single-treasure-info" disabled></textarea>
+            <div style="margin-top: 5vh;">
+                <div>
+                    <button onclick="copy_JSON()">Copy</button>
+                </div>
+                <label class="level">
+                    <span>level</span>
+                    <input id="input-level" type="number" onchange="onchange_level()" />
+                </label><br>
+                <label class="box_id">
+                    <span>box_id</span>
+                    <input id="input-box_id" type="number" onchange="onchange_box_id()" />
+                </label><br>
+                <textarea id="output-textarea" cols="50" rows="10" disabled></textarea>
+            </div>
+        </div>
+    </div>
+</body>
+<script>
+    const data = {
+        "level": -1,
+        "box_id": -1,
+        "treassures": [],
+        "must_pick": [],
+    };
+    let reward_box_content = null;
+    update_textarea();
+    const ITEM_TYPE = {
+        "1": "Item",
+        "2": "Equipment",
+        "3": "Memory Diamond",
+        "4": "Col",
+        "15": "Consecutive Scout"
+    };
+    function upload_reward_box_content(input) {
+        console.log("uploaded", input, input.files);
+        const files = input.files;
+        const keys = Object.keys(files);
+        keys.forEach((i) => {
+            const file = files[i];
+            if (!file) {
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = () => {
+                console.log(reader.result);
+                try {
+                    reward_box_content = JSON.parse(reader.result);
+                } catch (e) {
+                    document.querySelector(".root div.reward-box-content").hidden = true;
+                    alert("uploaded content not valid JSON");
+                    return;
+                }
+                const reward_box_content_select = document.getElementById("reward-box-content-select");
+                reward_box_content_select.innerHTML = "";
+
+                for (const box of reward_box_content.boxes) {
+                    const option = document.createElement("option");
+                    option.dataset.id = box.id;
+                    option.dataset.item = box.item;
+                    option.dataset.item_type = ITEM_TYPE[box.item_type];
+                    option.dataset.times = box.times;
+                    option.dataset.amount = box.amount;
+                    option.innerText = `${box.name} (${box.item ? `${option.dataset.item_type} ${box.item}` : option.dataset.item_type} ×${box.amount}) ×${box.times} | ${box.id}`;
+                    reward_box_content_select.appendChild(option);
+                }
+                document.querySelector(".root div.reward-box-content").hidden = false;
+                console.log("success", reward_box_content);
+
+                // reset value
+                input.value = "";
+            };
+            reader.readAsText(file);
+        });
+    }
+    function translate_item_type(item_type) {
+        return ITEM_TYPE[item_type] || "unknown";
+    }
+    function add_treasure() {
+        const reward_box_content_select = document.getElementById("reward-box-content-select");
+        const selected = reward_box_content_select.options[reward_box_content_select.selectedIndex];
+        const treasure_id = parseInt(selected.dataset.id);
+        if (data.treassures.includes(treasure_id)) {
+            alert("treasure already exists");
+            return;
+        }
+        data.treassures.push(treasure_id);
+        update_textarea();
+        update_treasure_list();
+        update_treasure_info();
+    }
+    function remove_treasure() {
+        const treasure_select = document.getElementById("treasure-select");
+        if (treasure_select.selectedIndex < 0) {
+            return;
+        }
+        const selected = data.treassures[treasure_select.selectedIndex];
+
+        // delete from treasures
+        data.treassures.splice(treasure_select.selectedIndex, 1);
+
+        // delete from must_pick
+        if (data.must_pick.includes(selected)) {
+            const must_pick_index = data.must_pick.indexOf(selected);
+            data.must_pick.splice(must_pick_index, 1);
+        }
+
+        update_textarea();
+        update_treasure_list();
+        update_treasure_info();
+    }
+    function onchange_level() {
+        const new_value = parseInt(document.getElementById("input-level").value);
+        data.level = new_value;
+        update_textarea();
+    }
+    function onchange_box_id() {
+        const new_value = parseInt(document.getElementById("input-box_id").value);
+        data.box_id = new_value;
+        update_textarea();
+    }
+    function onchange_treasure_select() {
+        const treasure_select = document.getElementById("treasure-select");
+        if (treasure_select.selectedIndex < 0) {
+            return;
+        }
+        const selected = data.treassures[treasure_select.selectedIndex];
+        const treasure_data = reward_box_content.boxes.find((obj) => obj.id === selected);
+        if (!treasure_data) {
+            return;
+        }
+        const single_treasure_info = document.getElementById("single-treasure-info");
+        single_treasure_info.value = JSON.stringify(treasure_data, null, 4);
+    }
+    function clear_single_treasure_info() {
+        const single_treasure_info = document.getElementById("single-treasure-info");
+        single_treasure_info.value = "";
+    }
+    function toggle_must_pick() {
+        const treasure_select = document.getElementById("treasure-select");
+        if (treasure_select.selectedIndex < 0) {
+            return;
+        }
+        const selected = data.treassures[treasure_select.selectedIndex];
+        if (data.must_pick.includes(selected)) {
+            // exists, so delete it from must_pick array
+            const must_pick_index = data.must_pick.indexOf(selected);
+            data.must_pick.splice(must_pick_index, 1);
+        } else {
+            // does not exist, add it to must_pick
+            data.must_pick.push(selected);
+        }
+        update_textarea();
+        update_treasure_list();
+    }
+    function update_textarea() {
+        const output_textarea = document.getElementById("output-textarea");
+        output_textarea.value = JSON.stringify(data, null, 4);
+    }
+    function update_treasure_list() {
+        const treasure_select = document.getElementById("treasure-select");
+        treasure_select.innerHTML = "";
+        for (const treasure of data.treassures) {
+            const treasure_data = reward_box_content.boxes.find((obj) => obj.id === treasure);
+            const option = document.createElement("option");
+            option.innerText = `${data.must_pick.includes(treasure) ? "[★] " : ""}${treasure}${treasure_data ? ` (×${treasure_data.times})` : ""}`;
+            treasure_select.appendChild(option);
+        }
+        clear_single_treasure_info();
+    }
+    function update_treasure_info() {
+        let html = "";
+        //let treasure_counter = data.treassures; // amount of treasures
+        let treasure_box_counter = 0; // amount of treasure boxes shown in game
+        for (const treasure of data.treassures) {
+            const treasure_data = reward_box_content.boxes.find((obj) => obj.id === treasure);
+            if (!treasure_data) {
+                console.log("!!! treasure data for", treasure, "not found, skipping");
+                continue;
+            }
+            treasure_box_counter += treasure_data.times || 0;
+            console.log(treasure_data);
+        }
+        html = `${data.treassures.length} added<br>there are ${treasure_box_counter} treasure boxes`;
+        document.getElementById("treasure-info").innerHTML = html;
+    }
+    function copy_JSON() {
+        // for some reason i cant just copy straight from this text area
+        const output_textarea = document.getElementById("output-textarea");
+        let dummy = document.createElement("textarea");
+        document.body.appendChild(dummy);
+        dummy.value = output_textarea.value;
+        dummy.select();
+        document.execCommand("copy");
+        document.body.removeChild(dummy);
+        //output_textarea.select();
+        //document.execCommand("copy");
+        console.log("copied");
+    }
+</script>
