@@ -15,15 +15,20 @@
     <br><br>
     <div class="root">
         <div class="reward-box-content" style="margin-bottom: 1vh;" hidden>
+            <div>
+                <label for="treasure-search">search:</label>
+                <input list="treasures-datalist" id="treasure-search" name="treasure-search" style="width: 80vw;" onchange="onchange_search()">
+                <datalist id="treasures-datalist"></datalist>
+            </div>
             <select id="reward-box-content-select"></select>
             <br>
             <button onclick="add_treasure()">Add</button>
             <br><br>
             <div style="display: flex; flex-direction: row;">
                 <div style="padding-right: 1vw;">
-                    <select id="treasure-select" multiple onchange="onchange_treasure_select()"></select>
+                    <select id="treasure-select" multiple onchange="onchange_treasure_select()" style="width: 30vw;" size="10"></select>
                     <div>
-                        <button onclick="remove_treasure()">Remove</button><br>
+                        <button onclick="remove_treasure()">Remove</button>
                         <button onclick="toggle_must_pick()">Toggle must_pick</button>
                     </div>
                 </div>
@@ -51,7 +56,7 @@
     const data = {
         "level": -1,
         "box_id": -1,
-        "treassures": [],
+        "treasures": [],
         "must_pick": [],
     };
     let reward_box_content = null;
@@ -84,17 +89,20 @@
                     return;
                 }
                 const reward_box_content_select = document.getElementById("reward-box-content-select");
+                const treasures_datalist = document.getElementById("treasures-datalist");
                 reward_box_content_select.innerHTML = "";
 
                 for (const box of reward_box_content.boxes) {
                     const option = document.createElement("option");
+                    const option2 = document.createElement("option");
                     option.dataset.id = box.id;
                     option.dataset.item = box.item;
                     option.dataset.item_type = ITEM_TYPE[box.item_type];
                     option.dataset.times = box.times;
                     option.dataset.amount = box.amount;
-                    option.innerText = `${box.name} (${box.item ? `${option.dataset.item_type} ${box.item}` : option.dataset.item_type} ×${box.amount}) ×${box.times} | ${box.id}`;
+                    option.innerText = option2.value = `${box.name} (${box.item ? `${option.dataset.item_type} ${box.item}` : option.dataset.item_type} ×${box.amount}) ×${box.times} | ${box.id}`;
                     reward_box_content_select.appendChild(option);
+                    treasures_datalist.appendChild(option2);
                 }
                 document.querySelector(".root div.reward-box-content").hidden = false;
                 console.log("success", reward_box_content);
@@ -112,11 +120,11 @@
         const reward_box_content_select = document.getElementById("reward-box-content-select");
         const selected = reward_box_content_select.options[reward_box_content_select.selectedIndex];
         const treasure_id = parseInt(selected.dataset.id);
-        if (data.treassures.includes(treasure_id)) {
+        if (data.treasures.includes(treasure_id)) {
             alert("treasure already exists");
             return;
         }
-        data.treassures.push(treasure_id);
+        data.treasures.push(treasure_id);
         update_textarea();
         update_treasure_list();
         update_treasure_info();
@@ -126,10 +134,10 @@
         if (treasure_select.selectedIndex < 0) {
             return;
         }
-        const selected = data.treassures[treasure_select.selectedIndex];
+        const selected = data.treasures[treasure_select.selectedIndex];
 
         // delete from treasures
-        data.treassures.splice(treasure_select.selectedIndex, 1);
+        data.treasures.splice(treasure_select.selectedIndex, 1);
 
         // delete from must_pick
         if (data.must_pick.includes(selected)) {
@@ -156,7 +164,7 @@
         if (treasure_select.selectedIndex < 0) {
             return;
         }
-        const selected = data.treassures[treasure_select.selectedIndex];
+        const selected = data.treasures[treasure_select.selectedIndex];
         const treasure_data = reward_box_content.boxes.find((obj) => obj.id === selected);
         if (!treasure_data) {
             return;
@@ -170,10 +178,11 @@
     }
     function toggle_must_pick() {
         const treasure_select = document.getElementById("treasure-select");
-        if (treasure_select.selectedIndex < 0) {
+        const selected_index = treasure_select.selectedIndex;
+        if (selected_index < 0) {
             return;
         }
-        const selected = data.treassures[treasure_select.selectedIndex];
+        const selected = data.treasures[selected_index];
         if (data.must_pick.includes(selected)) {
             // exists, so delete it from must_pick array
             const must_pick_index = data.must_pick.indexOf(selected);
@@ -184,6 +193,13 @@
         }
         update_textarea();
         update_treasure_list();
+        treasure_select.selectedIndex = selected_index;
+        const treasure_data = reward_box_content.boxes.find((obj) => obj.id === selected);
+        if (!treasure_data) {
+            return;
+        }
+        const single_treasure_info = document.getElementById("single-treasure-info");
+        single_treasure_info.value = JSON.stringify(treasure_data, null, 4);
     }
     function update_textarea() {
         const output_textarea = document.getElementById("output-textarea");
@@ -192,7 +208,7 @@
     function update_treasure_list() {
         const treasure_select = document.getElementById("treasure-select");
         treasure_select.innerHTML = "";
-        for (const treasure of data.treassures) {
+        for (const treasure of data.treasures) {
             const treasure_data = reward_box_content.boxes.find((obj) => obj.id === treasure);
             const option = document.createElement("option");
             option.innerText = `${data.must_pick.includes(treasure) ? "[★] " : ""}${treasure}${treasure_data ? ` (×${treasure_data.times})` : ""}`;
@@ -202,9 +218,8 @@
     }
     function update_treasure_info() {
         let html = "";
-        //let treasure_counter = data.treassures; // amount of treasures
         let treasure_box_counter = 0; // amount of treasure boxes shown in game
-        for (const treasure of data.treassures) {
+        for (const treasure of data.treasures) {
             const treasure_data = reward_box_content.boxes.find((obj) => obj.id === treasure);
             if (!treasure_data) {
                 console.log("!!! treasure data for", treasure, "not found, skipping");
@@ -213,7 +228,7 @@
             treasure_box_counter += treasure_data.times || 0;
             console.log(treasure_data);
         }
-        html = `${data.treassures.length} added<br>there are ${treasure_box_counter} treasure boxes`;
+        html = `${data.treasures.length} added<br>there are ${treasure_box_counter} treasure boxes`;
         document.getElementById("treasure-info").innerHTML = html;
     }
     function copy_JSON() {
@@ -225,8 +240,25 @@
         dummy.select();
         document.execCommand("copy");
         document.body.removeChild(dummy);
-        //output_textarea.select();
-        //document.execCommand("copy");
         console.log("copied");
     }
+    function onchange_search() {
+        const treasure_search = document.getElementById("treasure-search");
+        const reward_box_content_select = document.getElementById("reward-box-content-select");
+        let index;
+        for (let i = 0 ; i < reward_box_content_select.length ; i++) {
+            if (reward_box_content_select[i].childNodes[0].nodeValue === treasure_search.value) {
+                //index = i;
+                reward_box_content_select.selectedIndex = i;
+                treasure_search.value = null;
+                return;
+            }
+        }
+    }
 </script>
+<style>
+    textarea {
+        background-color: black;
+        color: white;
+    }
+</style>
